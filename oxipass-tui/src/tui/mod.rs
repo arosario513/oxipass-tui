@@ -10,7 +10,9 @@ use crossterm::{
 };
 use form::{EntryForm, EntryType};
 use ratatui::{Terminal, backend::CrosstermBackend};
-use std::io::{self, Write};
+#[cfg(not(windows))]
+use std::io::Write;
+use std::io::{self};
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -205,7 +207,8 @@ fn set_entry_id(entry: &mut Entry, id: Uuid) {
 fn copy_to_clipboard(text: &str) -> Result<(), io::Error> {
     #[cfg(windows)]
     {
-        clipboard_win::set_clipboard_string(text).map_err(|e| io::Error::other(e))?;
+        clipboard_win::set_clipboard_string(text)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
         return Ok(());
     }
     #[cfg(not(windows))]
