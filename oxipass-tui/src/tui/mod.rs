@@ -205,7 +205,8 @@ fn set_entry_id(entry: &mut Entry, id: Uuid) {
 fn copy_to_clipboard(text: &str) -> Result<(), io::Error> {
     #[cfg(windows)]
     {
-        let _ = clipboard_win::set_clipboard_string(text);
+        clipboard_win::set_clipboard_string(text).map_err(|e| io::Error::other(e))?;
+        return Ok(());
     }
     #[cfg(not(windows))]
     {
