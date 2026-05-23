@@ -100,6 +100,6 @@ fn optional_empty_field_passes() {
     let mut form = EntryForm::new(EntryType::Login);
     form.fields[0].value = "Site".to_string();
     form.fields[3].value = "pass".to_string();
-    // username, email, url all empty — optional, should be fine
+    // username, email, url all empty (optional). should be fine
     assert!(form.validate());
 }

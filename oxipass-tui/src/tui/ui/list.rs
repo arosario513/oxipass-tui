@@ -47,7 +47,7 @@ pub fn render_list(f: &mut Frame, app: &App, area: Rect) {
                             .fg(Color::Cyan)
                             .add_modifier(Modifier::BOLD),
                     ),
-                    Span::raw(format!("{} — {}", name, cardholder)),
+                    Span::raw(format!("{}: {}", name, cardholder)),
                 ]),
                 Entry::Note { name, .. } => Line::from(vec![
                     Span::styled(
