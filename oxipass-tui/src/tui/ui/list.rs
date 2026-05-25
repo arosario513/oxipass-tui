@@ -104,6 +104,7 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
             email,
             password,
             url,
+            notes,
             ..
         } => {
             let mut fields = vec![("Name", name.clone(), false)];
@@ -116,6 +117,9 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
             fields.push(("Password", password.clone(), true));
             if let Some(u) = url {
                 fields.push(("URL", u.clone(), false));
+            }
+            if let Some(n) = notes {
+                fields.push(("Notes", n.clone(), false));
             }
             PreviewData {
                 title: name.as_str(),
@@ -130,19 +134,26 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
             card_number,
             exp_date,
             cvv,
+            notes,
             ..
-        } => PreviewData {
-            title: name.as_str(),
-            title_color: Color::LightYellow,
-            fields: vec![
+        } => {
+            let mut fields = vec![
                 ("Name", name.clone(), false),
                 ("Cardholder", cardholder.clone(), false),
                 ("Card number", card_number.clone(), true),
                 ("Expiry", exp_date.clone(), false),
                 ("CVV", cvv.clone(), true),
-            ],
-            password: None,
-        },
+            ];
+            if let Some(n) = notes {
+                fields.push(("Notes", n.clone(), false));
+            }
+            PreviewData {
+                title: name.as_str(),
+                title_color: Color::LightYellow,
+                fields,
+                password: None,
+            }
+        }
         Entry::Note {
             name,
             description,
@@ -175,24 +186,32 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
     let mut lines: Vec<Line> = preview
         .fields
         .iter()
-        .filter_map(|(label, value, secret)| {
+        .flat_map(|(label, value, secret)| {
             let display = if *secret && !app.reveal {
                 "********".to_string()
             } else {
                 value.clone()
             };
             if display.is_empty() {
-                return None;
+                return vec![];
             }
-            Some(Line::from(vec![
-                Span::styled(
-                    format!("{label}: "),
-                    Style::default()
-                        .fg(Color::DarkGray)
-                        .add_modifier(Modifier::BOLD),
-                ),
-                Span::styled(display, Style::default().fg(Color::White)),
-            ]))
+            let label_style = Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD);
+            let value_style = Style::default().fg(Color::White);
+            let mut field_lines: Vec<Line> = Vec::new();
+            let mut parts = display.splitn(2, '\n');
+            let first = parts.next().unwrap_or("");
+            field_lines.push(Line::from(vec![
+                Span::styled(format!("{label}: "), label_style),
+                Span::styled(first.to_string(), value_style),
+            ]));
+            if let Some(rest) = parts.next() {
+                for part in rest.split('\n') {
+                    field_lines.push(Line::from(Span::styled(format!("  {part}"), value_style)));
+                }
+            }
+            field_lines
         })
         .collect();
 
@@ -208,7 +227,7 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
         };
         lines.push(Line::from(vec![
             Span::styled(
-                "Strength: ",
+                "Password Strength: ",
                 Style::default()
                     .fg(Color::DarkGray)
                     .add_modifier(Modifier::BOLD),

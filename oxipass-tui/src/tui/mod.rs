@@ -130,6 +130,7 @@ fn matches_search(entry: &Entry, query: &str) -> bool {
             username,
             email,
             url,
+            notes,
             ..
         } => {
             name.to_lowercase().contains(query)
@@ -144,10 +145,26 @@ fn matches_search(entry: &Entry, query: &str) -> bool {
                     .to_lowercase()
                     .contains(query)
                 || url.as_deref().unwrap_or("").to_lowercase().contains(query)
+                || notes
+                    .as_deref()
+                    .unwrap_or("")
+                    .to_lowercase()
+                    .contains(query)
         }
         Entry::Payment {
-            name, cardholder, ..
-        } => name.to_lowercase().contains(query) || cardholder.to_lowercase().contains(query),
+            name,
+            cardholder,
+            notes,
+            ..
+        } => {
+            name.to_lowercase().contains(query)
+                || cardholder.to_lowercase().contains(query)
+                || notes
+                    .as_deref()
+                    .unwrap_or("")
+                    .to_lowercase()
+                    .contains(query)
+        }
         Entry::Note {
             name,
             description,
@@ -178,6 +195,7 @@ fn build_entry(form: &form::EntryForm) -> Entry {
             email: non_empty(form.fields[2].value.clone()),
             password: form.fields[3].value.clone(),
             url: non_empty(form.fields[4].value.clone()),
+            notes: non_empty(form.fields[5].value.clone()),
         },
         form::EntryType::Payment => Entry::Payment {
             id: Uuid::new_v4(),
@@ -186,6 +204,7 @@ fn build_entry(form: &form::EntryForm) -> Entry {
             card_number: form.fields[2].value.clone(),
             exp_date: form.fields[3].value.clone(),
             cvv: form.fields[4].value.clone(),
+            notes: non_empty(form.fields[5].value.clone()),
         },
         form::EntryType::Note => Entry::Note {
             id: Uuid::new_v4(),
@@ -416,6 +435,11 @@ fn run_loop<B: ratatui::backend::Backend>(
             },
             Mode::Adding(_) | Mode::Editing(_, _) => match key.code {
                 KeyCode::Esc => app.mode = Mode::Normal,
+                KeyCode::Enter if key.modifiers.contains(KeyModifiers::ALT) => match app.mode {
+                    Mode::Adding(_) => app.submit_form(),
+                    Mode::Editing(_, _) => app.submit_edit(),
+                    _ => {}
+                },
                 KeyCode::Char('g') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     let is_generatable = match &app.mode {
                         Mode::Adding(form) | Mode::Editing(form, _) => {
@@ -436,20 +460,35 @@ fn run_loop<B: ratatui::backend::Backend>(
                     _ => {}
                 },
                 KeyCode::Enter => {
-                    let on_last = match &app.mode {
-                        Mode::Adding(f) | Mode::Editing(f, _) => f.focused == f.fields.len() - 1,
+                    let is_multiline = match &app.mode {
+                        Mode::Adding(f) | Mode::Editing(f, _) => f.fields[f.focused].multiline,
                         _ => false,
                     };
-                    if on_last {
-                        match app.mode {
-                            Mode::Adding(_) => app.submit_form(),
-                            Mode::Editing(_, _) => app.submit_edit(),
+                    if is_multiline {
+                        match &mut app.mode {
+                            Mode::Adding(form) | Mode::Editing(form, _) => {
+                                form.fields[form.focused].push('\n')
+                            }
                             _ => {}
                         }
                     } else {
-                        match &mut app.mode {
-                            Mode::Adding(form) | Mode::Editing(form, _) => form.next_field(),
-                            _ => {}
+                        let on_last = match &app.mode {
+                            Mode::Adding(f) | Mode::Editing(f, _) => {
+                                f.focused == f.fields.len() - 1
+                            }
+                            _ => false,
+                        };
+                        if on_last {
+                            match app.mode {
+                                Mode::Adding(_) => app.submit_form(),
+                                Mode::Editing(_, _) => app.submit_edit(),
+                                _ => {}
+                            }
+                        } else {
+                            match &mut app.mode {
+                                Mode::Adding(form) | Mode::Editing(form, _) => form.next_field(),
+                                _ => {}
+                            }
                         }
                     }
                 }

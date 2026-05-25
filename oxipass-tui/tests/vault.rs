@@ -9,6 +9,7 @@ fn login(name: &str, password: &str) -> Entry {
         email: None,
         password: password.to_string(),
         url: None,
+        notes: None,
     }
 }
 

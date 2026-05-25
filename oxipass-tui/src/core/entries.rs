@@ -10,6 +10,8 @@ pub enum Entry {
         email: Option<String>,
         password: String,
         url: Option<String>,
+        #[serde(default)]
+        notes: Option<String>,
     },
     Payment {
         id: Uuid,
@@ -18,6 +20,8 @@ pub enum Entry {
         card_number: String,
         exp_date: String,
         cvv: String,
+        #[serde(default)]
+        notes: Option<String>,
     },
     Note {
         id: Uuid,

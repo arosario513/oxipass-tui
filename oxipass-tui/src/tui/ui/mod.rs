@@ -179,12 +179,15 @@ fn render_statusbar(f: &mut Frame, app: &App, area: Rect) {
             ("Esc", "Cancel"),
         ]),
         Mode::Adding(form) | Mode::Editing(form, _) => {
-            let mut pairs: Vec<(&str, &str)> = vec![
-                ("Tab/↓", "Next"),
-                ("Shift+Tab/↑", "Prev"),
-                ("Enter", "Confirm"),
-                ("Esc", "Cancel"),
-            ];
+            let on_multiline = form.fields[form.focused].multiline;
+            let mut pairs: Vec<(&str, &str)> = vec![("Tab/↓", "Next"), ("Shift+Tab/↑", "Prev")];
+            if on_multiline {
+                pairs.push(("Enter", "Newline"));
+                pairs.push(("Alt+Enter", "Confirm"));
+            } else {
+                pairs.push(("Enter", "Confirm"));
+            }
+            pairs.push(("Esc", "Cancel"));
             if form.fields[form.focused].generatable {
                 pairs.push(("Ctrl+G", "Generate"));
             }

@@ -9,7 +9,15 @@ use ratatui::{
 };
 
 pub fn render_form(f: &mut Frame, form: &EntryForm) {
-    let area = centered_rect(55, 70, f.area());
+    let total_height: u16 = form
+        .fields
+        .iter()
+        .map(|field| if field.multiline { 7 } else { 3 })
+        .sum::<u16>()
+        + 2; // border
+    let percent_y =
+        ((total_height as f32 / f.area().height as f32) * 100.0).clamp(40.0, 95.0) as u16;
+    let area = centered_rect(55, percent_y, f.area());
     f.render_widget(Clear, area);
     f.render_widget(block(form.title(), PRIMARY), area);
 
@@ -20,9 +28,9 @@ pub fn render_form(f: &mut Frame, form: &EntryForm) {
         height: area.height.saturating_sub(2),
     };
 
-    let field_height = 3u16;
+    let mut y = inner.y;
     for (i, field) in form.fields.iter().enumerate() {
-        let y = inner.y + i as u16 * field_height;
+        let field_height: u16 = if field.multiline { 7 } else { 3 };
         if y + field_height > area.y + area.height {
             break;
         }
@@ -47,14 +55,28 @@ pub fn render_form(f: &mut Frame, form: &EntryForm) {
             Color::DarkGray
         };
 
-        f.render_widget(
-            Paragraph::new(field.display()).block(block(&label, border_color)),
-            field_area,
-        );
-
         if i == form.focused {
-            f.set_cursor_position((field_area.x + 1 + field.cursor as u16, field_area.y + 1));
+            let (row, col) = field.cursor_pos();
+            let inner_height = field_height.saturating_sub(2);
+            let scroll_row = row.saturating_sub(inner_height.saturating_sub(1));
+            f.render_widget(
+                Paragraph::new(field.display())
+                    .block(block(&label, border_color))
+                    .scroll((scroll_row, 0)),
+                field_area,
+            );
+            f.set_cursor_position((
+                field_area.x + 1 + col,
+                field_area.y + 1 + (row - scroll_row),
+            ));
+        } else {
+            f.render_widget(
+                Paragraph::new(field.display()).block(block(&label, border_color)),
+                field_area,
+            );
         }
+
+        y += field_height;
     }
 }
 

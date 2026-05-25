@@ -14,6 +14,7 @@ pub struct Field {
     pub optional: bool,
     pub invalid: bool,
     pub generatable: bool,
+    pub multiline: bool,
     validator: Option<fn(&str) -> bool>,
 }
 
@@ -27,6 +28,7 @@ impl Field {
             optional,
             invalid: false,
             generatable: false,
+            multiline: false,
             validator: None,
         }
     }
@@ -41,6 +43,7 @@ impl Field {
             optional,
             invalid: false,
             generatable: false,
+            multiline: false,
             validator: None,
         }
     }
@@ -50,9 +53,27 @@ impl Field {
         self
     }
 
+    fn multiline(mut self) -> Self {
+        self.multiline = true;
+        self
+    }
+
     fn with_validator(mut self, validator: fn(&str) -> bool) -> Self {
         self.validator = Some(validator);
         self
+    }
+
+    /// Returns `(row, col)` of the cursor within the field value.
+    /// For single-line fields this is always `(0, cursor)`.
+    pub fn cursor_pos(&self) -> (u16, u16) {
+        let byte_idx = char_to_byte(&self.value, self.cursor);
+        let before = &self.value[..byte_idx];
+        let row = before.chars().filter(|&c| c == '\n').count() as u16;
+        let col = match before.rfind('\n') {
+            Some(i) => before[i + 1..].chars().count() as u16,
+            None => before.chars().count() as u16,
+        };
+        (row, col)
     }
 
     pub fn push(&mut self, c: char) {
@@ -131,6 +152,7 @@ impl EntryForm {
                 Field::new("Email", false, true).with_validator(is_valid_email),
                 Field::new("Password", true, false).generatable(),
                 Field::new("URL", false, true),
+                Field::new("Notes", false, true).multiline(),
             ],
             EntryType::Payment => vec![
                 Field::new("Name", false, false),
@@ -138,11 +160,12 @@ impl EntryForm {
                 Field::new("Card number", false, false),
                 Field::new("Expiry date (MM/YY)", false, false),
                 Field::new("CVV", true, false),
+                Field::new("Notes", false, true).multiline(),
             ],
             EntryType::Note => vec![
                 Field::new("Name", false, false),
                 Field::new("Description", false, true),
-                Field::new("Content", false, false),
+                Field::new("Content", false, false).multiline(),
             ],
         };
         Self {
@@ -161,6 +184,7 @@ impl EntryForm {
                 email,
                 password,
                 url,
+                notes,
                 ..
             } => (
                 EntryType::Login,
@@ -181,6 +205,13 @@ impl EntryForm {
                     .with_validator(is_valid_email),
                     Field::with_value("Password", true, false, password.clone()).generatable(),
                     Field::with_value("URL", false, true, url.as_deref().unwrap_or("").to_string()),
+                    Field::with_value(
+                        "Notes",
+                        false,
+                        true,
+                        notes.as_deref().unwrap_or("").to_string(),
+                    )
+                    .multiline(),
                 ],
             ),
             Entry::Payment {
@@ -189,6 +220,7 @@ impl EntryForm {
                 card_number,
                 exp_date,
                 cvv,
+                notes,
                 ..
             } => (
                 EntryType::Payment,
@@ -198,6 +230,13 @@ impl EntryForm {
                     Field::with_value("Card number", false, false, card_number.clone()),
                     Field::with_value("Expiry date (MM/YY)", false, false, exp_date.clone()),
                     Field::with_value("CVV", true, false, cvv.clone()),
+                    Field::with_value(
+                        "Notes",
+                        false,
+                        true,
+                        notes.as_deref().unwrap_or("").to_string(),
+                    )
+                    .multiline(),
                 ],
             ),
             Entry::Note {
@@ -215,7 +254,7 @@ impl EntryForm {
                         true,
                         description.as_deref().unwrap_or("").to_string(),
                     ),
-                    Field::with_value("Content", false, false, content.clone()),
+                    Field::with_value("Content", false, false, content.clone()).multiline(),
                 ],
             ),
         };
