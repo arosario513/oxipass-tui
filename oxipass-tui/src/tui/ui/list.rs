@@ -1,4 +1,4 @@
-use super::{ACCENT, PRIMARY, block};
+use super::{ACCENT, LABEL, PRIMARY, block};
 use crate::core::Entry;
 use crate::tui::App;
 use ratatui::{
@@ -195,9 +195,7 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
             if display.is_empty() {
                 return vec![];
             }
-            let label_style = Style::default()
-                .fg(Color::DarkGray)
-                .add_modifier(Modifier::BOLD);
+            let label_style = Style::default().fg(LABEL).add_modifier(Modifier::BOLD);
             let value_style = Style::default().fg(Color::White);
             let mut field_lines: Vec<Line> = Vec::new();
             let mut parts = display.splitn(2, '\n');
@@ -228,9 +226,7 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
         lines.push(Line::from(vec![
             Span::styled(
                 "Password Strength: ",
-                Style::default()
-                    .fg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(LABEL).add_modifier(Modifier::BOLD),
             ),
             Span::styled(
                 label,

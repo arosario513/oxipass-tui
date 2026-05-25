@@ -118,3 +118,37 @@ pub fn render_confirm(f: &mut Frame) {
         area,
     );
 }
+
+pub fn render_copy_picker(f: &mut Frame, fields: &[(String, String)]) {
+    let height = fields.len() as u16 * 2 + 2;
+    let area = Rect {
+        x: (f.area().width.saturating_sub(44)) / 2,
+        y: (f.area().height.saturating_sub(height)) / 2,
+        width: 44,
+        height,
+    };
+    f.render_widget(Clear, area);
+    f.render_widget(block("Copy field", ACCENT), area);
+
+    for (i, (label, _)) in fields.iter().enumerate() {
+        let y = area.y + 1 + i as u16 * 2;
+        if y >= area.y + area.height {
+            break;
+        }
+        f.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled(
+                    format!("{}  ", i + 1),
+                    Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(label.clone()),
+            ])),
+            Rect {
+                x: area.x + 2,
+                y,
+                width: area.width.saturating_sub(4),
+                height: 1,
+            },
+        );
+    }
+}

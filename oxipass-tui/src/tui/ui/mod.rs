@@ -14,6 +14,7 @@ use ratatui::{
 pub(super) const PRIMARY: Color = Color::Blue;
 pub(super) const ACCENT: Color = Color::Cyan;
 pub(super) const DANGER: Color = Color::Yellow;
+pub(super) const LABEL: Color = Color::Rgb(160, 160, 175);
 const LOGO_COLOR: Color = Color::White;
 
 const LOGO: &str = concat!(
@@ -104,6 +105,7 @@ pub fn render(f: &mut Frame, app: &App) {
         Mode::PendingAdd => overlays::render_pending_add(f),
         Mode::Adding(form) | Mode::Editing(form, _) => overlays::render_form(f, form),
         Mode::ConfirmDelete => overlays::render_confirm(f),
+        Mode::CopyPicker(fields) => overlays::render_copy_picker(f, fields),
         Mode::Normal | Mode::Searching => {}
     }
 
@@ -210,6 +212,30 @@ fn render_statusbar(f: &mut Frame, app: &App, area: Rect) {
             Span::raw("Cancel"),
         ],
         Mode::Searching => unreachable!(),
+        Mode::CopyPicker(fields) => {
+            let mut spans = vec![Span::styled(
+                "Copy:  ",
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD),
+            )];
+            for (i, (label, _)) in fields.iter().enumerate() {
+                if i > 0 {
+                    spans.push(Span::styled("  │  ", Style::default().fg(Color::DarkGray)));
+                }
+                spans.push(Span::styled(
+                    format!("{} ", i + 1),
+                    Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+                ));
+                spans.push(Span::raw(label.clone()));
+            }
+            spans.push(Span::styled(
+                "  │  Esc ",
+                Style::default().fg(Color::DarkGray),
+            ));
+            spans.push(Span::raw("Cancel"));
+            spans
+        }
     };
 
     let bar = Paragraph::new(Line::from(spans))

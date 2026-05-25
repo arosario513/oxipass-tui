@@ -23,6 +23,7 @@ pub enum Mode {
     Adding(EntryForm),
     Editing(EntryForm, Uuid),
     ConfirmDelete,
+    CopyPicker(Vec<(String, String)>), // (label, value)
 }
 
 pub struct App {
@@ -223,6 +224,54 @@ fn set_entry_id(entry: &mut Entry, id: Uuid) {
     }
 }
 
+fn copy_fields(entry: &Entry) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    let mut push = |label: &str, value: &str| {
+        if !value.is_empty() {
+            fields.push((label.to_string(), value.to_string()));
+        }
+    };
+    match entry {
+        Entry::Login {
+            username,
+            email,
+            password,
+            url,
+            notes,
+            ..
+        } => {
+            push("Username", username.as_deref().unwrap_or(""));
+            push("Email", email.as_deref().unwrap_or(""));
+            push("Password", password);
+            push("URL", url.as_deref().unwrap_or(""));
+            push("Notes", notes.as_deref().unwrap_or(""));
+        }
+        Entry::Payment {
+            cardholder,
+            card_number,
+            exp_date,
+            cvv,
+            notes,
+            ..
+        } => {
+            push("Cardholder", cardholder);
+            push("Card number", card_number);
+            push("Expiry", exp_date);
+            push("CVV", cvv);
+            push("Notes", notes.as_deref().unwrap_or(""));
+        }
+        Entry::Note {
+            description,
+            content,
+            ..
+        } => {
+            push("Content", content);
+            push("Description", description.as_deref().unwrap_or(""));
+        }
+    }
+    fields
+}
+
 fn copy_to_clipboard(text: &str) -> Result<(), io::Error> {
     #[cfg(windows)]
     {
@@ -370,17 +419,17 @@ fn run_loop<B: ratatui::backend::Backend>(
                     app.reveal = !app.reveal;
                 }
                 KeyCode::Char('c') if !app.filtered_entries().is_empty() => {
-                    let text = {
+                    let fields = {
                         let filtered = app.filtered_entries();
-                        filtered.get(app.selected).map(|entry| match entry {
-                            Entry::Login { password, .. } => password.clone(),
-                            Entry::Payment { card_number, .. } => card_number.clone(),
-                            Entry::Note { content, .. } => content.clone(),
-                        })
+                        filtered.get(app.selected).map(|e| copy_fields(e))
                     };
-                    if let Some(text) = text {
-                        copy_to_clipboard(&text)?;
-                        app.status_msg = Some("Copied to clipboard!");
+                    if let Some(fields) = fields {
+                        if fields.len() == 1 {
+                            copy_to_clipboard(&fields[0].1)?;
+                            app.status_msg = Some("Copied to clipboard!");
+                        } else {
+                            app.mode = Mode::CopyPicker(fields);
+                        }
                     }
                 }
                 KeyCode::Char('a') => app.mode = Mode::PendingAdd,
@@ -540,6 +589,24 @@ fn run_loop<B: ratatui::backend::Backend>(
                     app.mode = Mode::Normal;
                 }
                 KeyCode::Char('n') | KeyCode::Esc => app.mode = Mode::Normal,
+                _ => {}
+            },
+            Mode::CopyPicker(_) => match key.code {
+                KeyCode::Esc => app.mode = Mode::Normal,
+                KeyCode::Char(c) if c.is_ascii_digit() => {
+                    let idx = c.to_digit(10).unwrap() as usize;
+                    let value = match &app.mode {
+                        Mode::CopyPicker(fields) => {
+                            fields.get(idx.saturating_sub(1)).map(|(_, v)| v.clone())
+                        }
+                        _ => None,
+                    };
+                    app.mode = Mode::Normal;
+                    if let Some(text) = value {
+                        copy_to_clipboard(&text)?;
+                        app.status_msg = Some("Copied to clipboard!");
+                    }
+                }
                 _ => {}
             },
         }
