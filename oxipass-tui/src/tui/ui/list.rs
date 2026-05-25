@@ -9,6 +9,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{List, ListItem, ListState, Paragraph},
 };
+use zxcvbn::zxcvbn;
 
 pub fn render_list(f: &mut Frame, app: &App, area: Rect) {
     let filtered = app.filtered_entries();
@@ -82,6 +83,13 @@ pub fn render_list(f: &mut Frame, app: &App, area: Rect) {
     f.render_stateful_widget(list, area, &mut state);
 }
 
+struct PreviewData<'a> {
+    title: &'a str,
+    title_color: Color,
+    fields: Vec<(&'static str, String, bool)>,
+    password: Option<&'a str>,
+}
+
 pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
     let filtered = app.filtered_entries();
     let Some(entry) = filtered.get(app.selected) else {
@@ -89,7 +97,7 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
         return;
     };
 
-    let (title, title_color, fields): (&str, Color, Vec<(&str, String, bool)>) = match entry {
+    let preview = match entry {
         Entry::Login {
             name,
             username,
@@ -98,18 +106,23 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
             url,
             ..
         } => {
-            let mut v = vec![("Name", name.clone(), false)];
+            let mut fields = vec![("Name", name.clone(), false)];
             if let Some(u) = username {
-                v.push(("Username", u.clone(), false));
+                fields.push(("Username", u.clone(), false));
             }
             if let Some(e) = email {
-                v.push(("Email", e.clone(), false));
+                fields.push(("Email", e.clone(), false));
             }
-            v.push(("Password", password.clone(), true));
+            fields.push(("Password", password.clone(), true));
             if let Some(u) = url {
-                v.push(("URL", u.clone(), false));
+                fields.push(("URL", u.clone(), false));
             }
-            (name.as_str(), Color::LightMagenta, v)
+            PreviewData {
+                title: name.as_str(),
+                title_color: Color::LightMagenta,
+                fields,
+                password: Some(password.as_str()),
+            }
         }
         Entry::Payment {
             name,
@@ -118,33 +131,39 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
             exp_date,
             cvv,
             ..
-        } => (
-            name.as_str(),
-            Color::LightYellow,
-            vec![
+        } => PreviewData {
+            title: name.as_str(),
+            title_color: Color::LightYellow,
+            fields: vec![
                 ("Name", name.clone(), false),
                 ("Cardholder", cardholder.clone(), false),
                 ("Card number", card_number.clone(), true),
                 ("Expiry", exp_date.clone(), false),
                 ("CVV", cvv.clone(), true),
             ],
-        ),
+            password: None,
+        },
         Entry::Note {
             name,
             description,
             content,
             ..
         } => {
-            let mut v = vec![("Name", name.clone(), false)];
+            let mut fields = vec![("Name", name.clone(), false)];
             if let Some(d) = description {
-                v.push(("Description", d.clone(), false));
+                fields.push(("Description", d.clone(), false));
             }
-            v.push(("Content", content.clone(), false));
-            (name.as_str(), Color::LightGreen, v)
+            fields.push(("Content", content.clone(), false));
+            PreviewData {
+                title: name.as_str(),
+                title_color: Color::LightGreen,
+                fields,
+                password: None,
+            }
         }
     };
 
-    f.render_widget(block(title, title_color), area);
+    f.render_widget(block(preview.title, preview.title_color), area);
 
     let inner = Rect {
         x: area.x + 2,
@@ -153,7 +172,8 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
         height: area.height.saturating_sub(2),
     };
 
-    let lines: Vec<Line> = fields
+    let mut lines: Vec<Line> = preview
+        .fields
         .iter()
         .filter_map(|(label, value, secret)| {
             let display = if *secret && !app.reveal {
@@ -175,6 +195,30 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
             ]))
         })
         .collect();
+
+    if let Some(pw) = preview.password
+        && !pw.is_empty()
+    {
+        let score = u8::from(zxcvbn(pw, &[]).score());
+        let (label, color) = match score {
+            0 | 1 => ("Weak", Color::Red),
+            2 => ("Moderate", Color::Yellow),
+            3 => ("Strong", Color::Green),
+            _ => ("Very Strong", Color::Cyan),
+        };
+        lines.push(Line::from(vec![
+            Span::styled(
+                "Strength: ",
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                label,
+                Style::default().fg(color).add_modifier(Modifier::BOLD),
+            ),
+        ]));
+    }
 
     f.render_widget(Paragraph::new(lines), inner);
 }
