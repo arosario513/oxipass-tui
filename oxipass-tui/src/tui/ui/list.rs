@@ -32,7 +32,7 @@ pub fn render_list(f: &mut Frame, app: &App, area: Rect) {
                         Span::styled(
                             "[Login]   ",
                             Style::default()
-                                .fg(Color::LightBlue)
+                                .fg(Color::LightMagenta)
                                 .add_modifier(Modifier::BOLD),
                         ),
                         Span::raw(format!("{}: {}", name, identity)),
@@ -44,7 +44,7 @@ pub fn render_list(f: &mut Frame, app: &App, area: Rect) {
                     Span::styled(
                         "[Payment] ",
                         Style::default()
-                            .fg(Color::Cyan)
+                            .fg(Color::LightYellow)
                             .add_modifier(Modifier::BOLD),
                     ),
                     Span::raw(format!("{}: {}", name, cardholder)),
@@ -53,7 +53,7 @@ pub fn render_list(f: &mut Frame, app: &App, area: Rect) {
                     Span::styled(
                         "[Note]    ",
                         Style::default()
-                            .fg(Color::Gray)
+                            .fg(Color::LightGreen)
                             .add_modifier(Modifier::BOLD),
                     ),
                     Span::raw(name.clone()),
@@ -109,7 +109,7 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
             if let Some(u) = url {
                 v.push(("URL", u.clone(), false));
             }
-            (name.as_str(), Color::LightBlue, v)
+            (name.as_str(), Color::LightMagenta, v)
         }
         Entry::Payment {
             name,
@@ -120,7 +120,7 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
             ..
         } => (
             name.as_str(),
-            Color::Cyan,
+            Color::LightYellow,
             vec![
                 ("Name", name.clone(), false),
                 ("Cardholder", cardholder.clone(), false),
@@ -140,7 +140,7 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
                 v.push(("Description", d.clone(), false));
             }
             v.push(("Content", content.clone(), false));
-            (name.as_str(), Color::Gray, v)
+            (name.as_str(), Color::LightGreen, v)
         }
     };
 
@@ -206,7 +206,7 @@ pub fn render_stats(f: &mut Frame, app: &App, area: Rect) {
         Span::styled(
             "[Login] ",
             Style::default()
-                .fg(Color::LightBlue)
+                .fg(Color::LightMagenta)
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
@@ -219,7 +219,7 @@ pub fn render_stats(f: &mut Frame, app: &App, area: Rect) {
         Span::styled(
             "[Payment] ",
             Style::default()
-                .fg(Color::Cyan)
+                .fg(Color::LightYellow)
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
@@ -232,7 +232,7 @@ pub fn render_stats(f: &mut Frame, app: &App, area: Rect) {
         Span::styled(
             "[Note] ",
             Style::default()
-                .fg(Color::Gray)
+                .fg(Color::Green)
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
