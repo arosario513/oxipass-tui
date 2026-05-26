@@ -12,8 +12,11 @@ A terminal-based password manager inspired by KeePassXC, written in Rust. All da
 
 - **Entry types:** Login, Payment, Note
 - **Encryption:** AES-256-GCM with Argon2 key derivation, deflate-compressed before encryption
-- **Password generator:** configurable length and character sets, entropy display, zxcvbn strength scoring
+- **Keyfile support:** optional `.opkey` file as a second factor, the vault cannot be opened without both the master password and the keyfile
+- **Password generator:** configurable length and character sets, entropy display, zxcvbn strength scoring shown in both the generator and the preview pane
 - **Clipboard:** OSC 52 terminal escape sequence which works in any modern terminal without X11/Wayland libraries
+- **Copy picker:** press `c` to choose any field to copy, not just the primary secret
+- **Multiline notes** on all entry types; `Enter` inserts a newline, `Alt+Enter` submits
 - **Live search** across all entry fields
 - **Preview pane** with inline reveal toggle for secrets
 
@@ -34,9 +37,16 @@ oxipass-tui new ~/passwords
 
 # Open an existing vault
 oxipass-tui open ~/passwords.opdb
+
+# Create a new vault protected by a keyfile
+oxipass-tui keygen ~/my.opkey
+oxipass-tui new ~/passwords -k ~/my.opkey
+
+# Open a keyfile-protected vault
+oxipass-tui open ~/passwords.opdb -k ~/my.opkey
 ```
 
-Vaults are saved as `<name>.opdb`.
+Vaults are saved as `<name>.opdb`. Keyfiles are saved as `<name>.opkey`.
 
 ## Key bindings
 
@@ -47,7 +57,7 @@ Vaults are saved as `<name>.opdb`.
 | `j` / `↓`      | Move down                        |
 | `k` / `↑`      | Move up                          |
 | `r`            | Reveal / hide secrets in preview |
-| `c`            | Copy primary secret to clipboard |
+| `c`            | Open copy picker                 |
 | `/`            | Search                           |
 | `a`            | Add entry                        |
 | `e`            | Edit selected entry              |
@@ -57,13 +67,14 @@ Vaults are saved as `<name>.opdb`.
 
 ### Add / Edit form
 
-| Key               | Action                                      |
-| ----------------- | ------------------------------------------- |
-| `Tab` / `↓`       | Next field                                  |
-| `Shift+Tab` / `↑` | Previous field                              |
-| `Enter`           | Next field / confirm on last                |
-| `Ctrl+G`          | Open password generator (on password field) |
-| `Esc`             | Cancel                                      |
+| Key               | Action                                                               |
+| ----------------- | -------------------------------------------------------------------- |
+| `Tab` / `↓`       | Next field                                                           |
+| `Shift+Tab` / `↑` | Previous field                                                       |
+| `Enter`           | Next field / confirm on last (or insert newline in multiline fields) |
+| `Alt+Enter`       | Submit form from a multiline field                                   |
+| `Ctrl+G`          | Open password generator (on password field)                          |
+| `Esc`             | Cancel                                                               |
 
 ### Password generator
 
@@ -78,8 +89,22 @@ Vaults are saved as `<name>.opdb`.
 
 ## File format
 
+### Vault (`.opdb`)
+
 ```
 [salt: 16 bytes][nonce: 12 bytes][ciphertext + GCM tag]
 ```
 
-The plaintext is JSON, deflate-compressed and then AES-256-GCM encrypted. The 32-byte key is derived from the master password using Argon2. The vault is fully re-encrypted on every save. A wrong master password causes AES-GCM authentication to fai. No plaintext is ever exposed.
+The plaintext is JSON, deflate-compressed and then AES-256-GCM encrypted. The 32-byte key is derived from the master password (concatenated with the keyfile bytes if present) using Argon2. The vault is fully re-encrypted on every save. A wrong master password causes AES-GCM authentication to fail. No plaintext is ever exposed.
+
+### Keyfile (`.opkey`)
+
+```json
+{
+  "version": "1.0.0",
+  "hash": "ac7fef9b",
+  "data": "<base64-encoded 32 random bytes>"
+}
+```
+
+The `hash` field is the first 4 bytes of SHA-256 over the raw key bytes, encoded as lowercase hex. It is used only to detect a corrupted keyfile, not for authentication.
