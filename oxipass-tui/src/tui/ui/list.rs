@@ -196,7 +196,7 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
                 return vec![];
             }
             let label_style = Style::default().fg(LABEL).add_modifier(Modifier::BOLD);
-            let value_style = Style::default().fg(Color::White);
+            let value_style = Style::default();
             let mut field_lines: Vec<Line> = Vec::new();
             let mut parts = display.splitn(2, '\n');
             let first = parts.next().unwrap_or("");
