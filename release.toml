@@ -1,3 +1,4 @@
 shared-version = true
 tag-name = "v{{version}}"
 pre-release-commit-message = "chore: release v{{version}}"
+publish = false
