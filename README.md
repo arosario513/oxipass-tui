@@ -2,9 +2,11 @@
 
 A terminal-based password manager inspired by KeePassXC, written in Rust. All data is stored in a single encrypted local file, which means no cloud, no network, no dependencies on system keyring or clipboard daemons. **You control everything.**
 
-![screenshot](https://github.com/user-attachments/assets/17fc5a67-9c9c-49b8-9fa7-2155e8b03f89)
+![screenshot](https://github.com/user-attachments/assets/52d26af1-2ed1-4c8a-b900-1b6a763946a0)
 
-![password-generator](https://github.com/user-attachments/assets/144afc3d-0fcd-4120-8723-8fda419d39c7)
+![password-generator](https://github.com/user-attachments/assets/412ddf22-170e-4714-a124-b0d898f4c94d)
+
+![edit](https://github.com/user-attachments/assets/081805aa-b4e0-4811-ba4e-0a930d6b263d)
 
 ## Features
 
