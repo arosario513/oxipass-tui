@@ -9,6 +9,14 @@ use std::io::{Read, Write};
 use std::path::Path;
 use uuid::Uuid;
 
+fn key_material(password: &str, keyfile: Option<&[u8]>) -> Vec<u8> {
+    let mut material = password.as_bytes().to_vec();
+    if let Some(kf) = keyfile {
+        material.extend_from_slice(kf);
+    }
+    material
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Vault {
     entries: Vec<Entry>,
@@ -61,13 +69,19 @@ impl Vault {
         self.entries.len() < before
     }
 
-    pub fn save(&self, path: &Path, password: &str) -> Result<(), VaultError> {
+    pub fn save(
+        &self,
+        path: &Path,
+        password: &str,
+        keyfile: Option<&[u8]>,
+    ) -> Result<(), VaultError> {
         let path = path.with_extension("opdb");
         let json = serde_json::to_vec(self)?;
         let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(&json)?;
         let plaintext = encoder.finish()?;
-        let (key_bytes, salt) = derive_key(password)?;
+        let material = key_material(password, keyfile);
+        let (key_bytes, salt) = derive_key_from_bytes(&material)?;
         let key = Key::<Aes256Gcm>::from(key_bytes);
         let nonce = generate_nonce();
         let blob = encrypt(&plaintext, key, nonce)?;
@@ -80,7 +94,7 @@ impl Vault {
         Ok(())
     }
 
-    pub fn load(path: &Path, password: &str) -> Result<Self, VaultError> {
+    pub fn load(path: &Path, password: &str, keyfile: Option<&[u8]>) -> Result<Self, VaultError> {
         let data = std::fs::read(path)?;
 
         if data.len() < 44 {
@@ -89,7 +103,8 @@ impl Vault {
 
         let (salt_bytes, blob) = data.split_at(16);
         let salt: [u8; 16] = salt_bytes.try_into().map_err(|_| VaultError::InvalidFile)?;
-        let key_bytes = derive_key_with_salt(password, &salt)?;
+        let material = key_material(password, keyfile);
+        let key_bytes = derive_key_from_bytes_with_salt(&material, &salt)?;
         let key = Key::<Aes256Gcm>::from(key_bytes);
         let compressed = decrypt(blob, key)?;
         let mut decoder = DeflateDecoder::new(&compressed[..]);

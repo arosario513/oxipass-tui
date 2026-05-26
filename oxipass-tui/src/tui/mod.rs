@@ -30,6 +30,7 @@ pub struct App {
     pub vault: Vault,
     pub path: PathBuf,
     pub password: String,
+    pub keyfile: Option<Vec<u8>>,
     pub selected: usize,
     pub mode: Mode,
     pub status_msg: Option<&'static str>,
@@ -39,11 +40,12 @@ pub struct App {
 }
 
 impl App {
-    fn new(vault: Vault, path: PathBuf, password: String) -> Self {
+    fn new(vault: Vault, path: PathBuf, password: String, keyfile: Option<Vec<u8>>) -> Self {
         Self {
             vault,
             path,
             password,
+            keyfile,
             selected: 0,
             mode: Mode::Normal,
             status_msg: None,
@@ -92,7 +94,9 @@ impl App {
         if self.selected > 0 && self.selected >= self.filtered_entries().len() {
             self.selected -= 1;
         }
-        let _ = self.vault.save(&self.path, &self.password);
+        let _ = self
+            .vault
+            .save(&self.path, &self.password, self.keyfile.as_deref());
     }
 
     fn submit_form(&mut self) {
@@ -105,7 +109,9 @@ impl App {
         let entry = build_entry(form);
         self.mode = Mode::Normal;
         self.vault.push_entry(entry);
-        let _ = self.vault.save(&self.path, &self.password);
+        let _ = self
+            .vault
+            .save(&self.path, &self.password, self.keyfile.as_deref());
     }
 
     fn submit_edit(&mut self) {
@@ -120,7 +126,9 @@ impl App {
         set_entry_id(&mut entry, id);
         self.mode = Mode::Normal;
         self.vault.replace_entry(id, entry);
-        let _ = self.vault.save(&self.path, &self.password);
+        let _ = self
+            .vault
+            .save(&self.path, &self.password, self.keyfile.as_deref());
     }
 }
 
@@ -289,19 +297,24 @@ fn copy_to_clipboard(text: &str) -> Result<(), io::Error> {
     }
 }
 
-pub fn run(vault: Vault, path: PathBuf, password: String) -> Result<(), VaultError> {
+pub fn run(
+    vault: Vault,
+    path: PathBuf,
+    password: String,
+    keyfile: Option<Vec<u8>>,
+) -> Result<(), VaultError> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut app = App::new(vault, path, password);
+    let mut app = App::new(vault, path, password, keyfile);
     let result = run_loop(&mut terminal, &mut app);
 
-    let _ = disable_raw_mode();
-    let _ = execute!(terminal.backend_mut(), LeaveAlternateScreen);
-    let _ = terminal.show_cursor();
+    disable_raw_mode()?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    terminal.show_cursor()?;
 
     result
 }

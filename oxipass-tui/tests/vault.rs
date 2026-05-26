@@ -22,9 +22,9 @@ fn save_load_roundtrip() {
     let mut vault = Vault::new();
     vault.push_entry(login("GitHub", "s3cr3t"));
     vault.push_entry(login("Email", "hunter2"));
-    vault.save(&path, password).unwrap();
+    vault.save(&path, password, None).unwrap();
 
-    let loaded = Vault::load(&path.with_extension("opdb"), password).unwrap();
+    let loaded = Vault::load(&path.with_extension("opdb"), password, None).unwrap();
     assert_eq!(loaded.entries().len(), 2);
     assert!(matches!(&loaded.entries()[0], Entry::Login { name, .. } if name == "GitHub"));
 }
@@ -34,8 +34,8 @@ fn wrong_password_fails() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("vault");
 
-    Vault::new().save(&path, "correct").unwrap();
-    assert!(Vault::load(&path.with_extension("opdb"), "wrong").is_err());
+    Vault::new().save(&path, "correct", None).unwrap();
+    assert!(Vault::load(&path.with_extension("opdb"), "wrong", None).is_err());
 }
 
 #[test]

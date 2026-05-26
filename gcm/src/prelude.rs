@@ -4,4 +4,6 @@ pub use crate::aes256gcm::encrypt::encrypt;
 pub use crate::aes256gcm::error::Error::{self, *};
 pub use crate::aes256gcm::nonce::generate_nonce;
 pub use crate::argon2_kdf::derive_key;
+pub use crate::argon2_kdf::derive_key_from_bytes;
+pub use crate::argon2_kdf::derive_key_from_bytes_with_salt;
 pub use crate::argon2_kdf::derive_key_with_salt;

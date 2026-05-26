@@ -14,4 +14,6 @@ pub enum VaultError {
     VaultExists(std::path::PathBuf),
     #[error("Passwords do not match")]
     PasswordMismatch,
+    #[error("Invalid or corrupted key file")]
+    InvalidKeyFile,
 }

@@ -19,7 +19,9 @@ thiserror = "2.0.16"
 uuid = { version = "1.23.1", features = ["v4", "serde"] }
 base64 = "0.22"
 rand = "0.10.1"
+sha2 = "0.10"
 zxcvbn = "3.1.1"
+totp-rs = "5.7.1"
 
 [target.'cfg(windows)'.dependencies]
 clipboard-win = "5"
