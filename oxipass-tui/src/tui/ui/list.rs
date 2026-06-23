@@ -183,6 +183,23 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
         height: area.height.saturating_sub(2),
     };
 
+    let has_pw_strength = preview.password.is_some_and(|p| !p.is_empty());
+    let max_label_width = preview
+        .fields
+        .iter()
+        .filter(|(_, value, secret)| {
+            let display = if *secret && !app.reveal {
+                "********"
+            } else {
+                value.as_str()
+            };
+            !display.is_empty()
+        })
+        .map(|(label, _, _)| label.len())
+        .chain(has_pw_strength.then_some("Password Strength".len()))
+        .max()
+        .unwrap_or(0);
+
     let mut lines: Vec<Line> = preview
         .fields
         .iter()
@@ -197,27 +214,30 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
             }
             let label_style = Style::default().fg(LABEL).add_modifier(Modifier::BOLD);
             let value_style = Style::default();
+            let indent = " ".repeat(max_label_width + 2);
             let mut field_lines: Vec<Line> = Vec::new();
             let mut parts = display.splitn(2, '\n');
             let first = parts.next().unwrap_or("");
             field_lines.push(Line::from(vec![
-                Span::styled(format!("{label}: "), label_style),
+                Span::styled(format!("{label:<max_label_width$}: "), label_style),
                 Span::styled(first.to_string(), value_style),
             ]));
             if let Some(rest) = parts.next() {
                 for part in rest.split('\n') {
-                    field_lines.push(Line::from(Span::styled(format!("  {part}"), value_style)));
+                    field_lines.push(Line::from(Span::styled(
+                        format!("{indent}{part}"),
+                        value_style,
+                    )));
                 }
             }
             field_lines
         })
         .collect();
 
-    if let Some(pw) = preview.password
-        && !pw.is_empty()
-    {
+    if has_pw_strength {
+        let pw = preview.password.unwrap_or("");
         let score = u8::from(zxcvbn(pw, &[]).score());
-        let (label, color) = match score {
+        let (strength_label, color) = match score {
             0 | 1 => ("Weak", Color::Red),
             2 => ("Moderate", Color::Yellow),
             3 => ("Strong", Color::Green),
@@ -225,11 +245,11 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
         };
         lines.push(Line::from(vec![
             Span::styled(
-                "Password Strength: ",
+                format!("{:<max_label_width$}: ", "Password Strength"),
                 Style::default().fg(LABEL).add_modifier(Modifier::BOLD),
             ),
             Span::styled(
-                label,
+                strength_label,
                 Style::default().fg(color).add_modifier(Modifier::BOLD),
             ),
         ]));
