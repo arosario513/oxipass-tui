@@ -90,6 +90,12 @@ impl Vault {
         file_data.extend_from_slice(&salt);
         file_data.extend_from_slice(&blob);
 
+        // Backup
+        let bak = path.with_extension("opdb.bak");
+        if path.exists() {
+            std::fs::copy(&path, bak)?;
+        }
+
         std::fs::write(path, file_data)?;
         Ok(())
     }
