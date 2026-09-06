@@ -1,4 +1,5 @@
 *.opdb
 *.opkey
+*.opdb.bak
 Cargo.lock
 target/
