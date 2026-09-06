@@ -2,7 +2,7 @@ pub mod form;
 mod ui;
 
 use crate::core::PasswordGen;
-use crate::core::{Entry, Vault, VaultError};
+use crate::core::{Entry, Vault, VaultError, totp};
 use crossterm::{
     event::{self, Event, KeyCode, KeyModifiers},
     execute,
@@ -14,6 +14,7 @@ use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io::Write;
 use std::io::{self};
 use std::path::PathBuf;
+use std::time::Duration;
 use uuid::Uuid;
 
 pub enum Mode {
@@ -203,8 +204,9 @@ fn build_entry(form: &form::EntryForm) -> Entry {
             username: non_empty(form.fields[1].value.clone()),
             email: non_empty(form.fields[2].value.clone()),
             password: form.fields[3].value.clone(),
-            url: non_empty(form.fields[4].value.clone()),
-            notes: non_empty(form.fields[5].value.clone()),
+            totp: non_empty(form.fields[4].value.trim().to_string()),
+            url: non_empty(form.fields[5].value.clone()),
+            notes: non_empty(form.fields[6].value.clone()),
         },
         form::EntryType::Payment => Entry::Payment {
             id: Uuid::new_v4(),
@@ -246,11 +248,15 @@ fn copy_fields(entry: &Entry) -> Vec<(String, String)> {
             password,
             url,
             notes,
+            totp,
             ..
         } => {
             push("Username", username.as_deref().unwrap_or(""));
             push("Email", email.as_deref().unwrap_or(""));
             push("Password", password);
+            if let Some((code, _)) = totp.as_deref().and_then(totp::current) {
+                push("TOTP", &code);
+            }
             push("URL", url.as_deref().unwrap_or(""));
             push("Notes", notes.as_deref().unwrap_or(""));
         }
@@ -325,6 +331,11 @@ fn run_loop<B: ratatui::backend::Backend>(
 ) -> Result<(), VaultError> {
     loop {
         terminal.draw(|f| ui::render(f, app))?;
+
+        // Wake at least once a second so the TOTP code and its countdown refresh.
+        if !event::poll(Duration::from_secs(1))? {
+            continue;
+        }
 
         let Event::Key(key) = event::read()? else {
             continue;

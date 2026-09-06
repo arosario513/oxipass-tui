@@ -16,4 +16,6 @@ pub enum VaultError {
     PasswordMismatch,
     #[error("Invalid or corrupted key file")]
     InvalidKeyFile,
+    #[error("Invalid TOTP secret")]
+    InvalidTotp,
 }

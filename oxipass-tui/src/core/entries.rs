@@ -12,6 +12,8 @@ pub enum Entry {
         url: Option<String>,
         #[serde(default)]
         notes: Option<String>,
+        #[serde(default)]
+        totp: Option<String>,
     },
     Payment {
         id: Uuid,

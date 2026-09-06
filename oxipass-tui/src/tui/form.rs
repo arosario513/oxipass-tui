@@ -1,4 +1,4 @@
-use crate::core::Entry;
+use crate::core::{Entry, totp};
 
 pub enum EntryType {
     Login,
@@ -151,6 +151,7 @@ impl EntryForm {
                 Field::new("Username", false, true),
                 Field::new("Email", false, true).with_validator(is_valid_email),
                 Field::new("Password", true, false).generatable(),
+                Field::new("TOTP", false, true).with_validator(totp::is_valid),
                 Field::new("URL", false, true),
                 Field::new("Notes", false, true).multiline(),
             ],
@@ -185,6 +186,7 @@ impl EntryForm {
                 password,
                 url,
                 notes,
+                totp,
                 ..
             } => (
                 EntryType::Login,
@@ -204,6 +206,13 @@ impl EntryForm {
                     )
                     .with_validator(is_valid_email),
                     Field::with_value("Password", true, false, password.clone()).generatable(),
+                    Field::with_value(
+                        "TOTP",
+                        false,
+                        true,
+                        totp.as_deref().unwrap_or("").to_string(),
+                    )
+                    .with_validator(totp::is_valid),
                     Field::with_value("URL", false, true, url.as_deref().unwrap_or("").to_string()),
                     Field::with_value(
                         "Notes",

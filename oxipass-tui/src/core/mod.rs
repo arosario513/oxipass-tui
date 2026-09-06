@@ -2,6 +2,7 @@ mod entries;
 mod error;
 mod generator;
 mod keyfile;
+pub mod totp;
 mod vault;
 
 pub use entries::Entry;

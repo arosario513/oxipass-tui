@@ -105,6 +105,7 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
             password,
             url,
             notes,
+            totp,
             ..
         } => {
             let mut fields = vec![("Name", name.clone(), false)];
@@ -115,6 +116,9 @@ pub fn render_preview(f: &mut Frame, app: &App, area: Rect) {
                 fields.push(("Email", e.clone(), false));
             }
             fields.push(("Password", password.clone(), true));
+            if let Some((code, ttl)) = totp.as_deref().and_then(crate::core::totp::current) {
+                fields.push(("TOTP", format!("{code}   ({ttl}s)"), false));
+            }
             if let Some(u) = url {
                 fields.push(("URL", u.clone(), false));
             }

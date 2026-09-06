@@ -21,7 +21,7 @@ base64 = "0.22"
 rand = "0.10.1"
 sha2 = "0.10"
 zxcvbn = "3.1.1"
-totp-rs = "5.7.1"
+totp-rs = { version = "5.7.1", features = ["otpauth"] }
 
 [target.'cfg(windows)'.dependencies]
 clipboard-win = "5"

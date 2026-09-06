@@ -11,6 +11,7 @@ A terminal-based password manager inspired by KeePassXC, written in Rust. All da
 ## Features
 
 - **Entry types:** Login, Payment, Note
+- **TOTP:** add an `otpauth://` URI or a base32 secret to any Login; the live 6-digit code and its countdown show in the preview pane and can be copied from the copy picker. Stored the same way KeePassXC stores it (the `otp` field), so it carries across on import/export.
 - **Encryption:** AES-256-GCM with Argon2 key derivation, deflate-compressed before encryption
 - **Keyfile support:** optional `.opkey` file as a second factor, the vault cannot be opened without both the master password and the keyfile
 - **Password generator:** configurable length and character sets, entropy display, zxcvbn strength scoring shown in both the generator and the preview pane

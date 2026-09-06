@@ -10,6 +10,7 @@ fn login(name: &str, password: &str) -> Entry {
         password: password.to_string(),
         url: None,
         notes: None,
+        totp: None,
     }
 }
 
@@ -27,6 +28,13 @@ fn save_load_roundtrip() {
     let loaded = Vault::load(&path.with_extension("opdb"), password, None).unwrap();
     assert_eq!(loaded.entries().len(), 2);
     assert!(matches!(&loaded.entries()[0], Entry::Login { name, .. } if name == "GitHub"));
+}
+
+#[test]
+fn login_without_totp_field_still_deserializes() {
+    let json = r#"{"Login":{"id":"00000000-0000-0000-0000-000000000000","name":"Old","username":null,"email":null,"password":"p","url":null,"notes":null}}"#;
+    let entry: Entry = serde_json::from_str(json).unwrap();
+    assert!(matches!(entry, Entry::Login { totp: None, .. }));
 }
 
 #[test]
