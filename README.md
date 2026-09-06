@@ -1,5 +1,10 @@
 # oxipass-tui
 
+[![CI](https://github.com/arosario513/oxipass-tui/actions/workflows/ci.yml/badge.svg)](https://github.com/arosario513/oxipass-tui/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/arosario513/oxipass-tui?logo=github)](https://github.com/arosario513/oxipass-tui/releases/latest)
+[![AUR](https://img.shields.io/aur/version/oxipass-tui-bin?logo=archlinux&logoColor=white)](https://aur.archlinux.org/packages/oxipass-tui-bin)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A terminal-based password manager inspired by KeePassXC, written in Rust. All data is stored in a single encrypted local file, which means no cloud, no network, no dependencies on system keyring or clipboard daemons. **You control everything.**
 
 ![screenshot](https://github.com/user-attachments/assets/52d26af1-2ed1-4c8a-b900-1b6a763946a0)
