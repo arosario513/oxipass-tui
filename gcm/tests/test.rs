@@ -10,8 +10,8 @@ fn gcm_encrypt_decrypt() -> Result<(), Error> {
     let plain = b"Hello, world!";
     let key = Aes256Gcm::generate_key(OsRng);
     let nonce = Aes256Gcm::generate_nonce(OsRng);
-    let enc = encrypt(plain.as_ref(), key, nonce)?;
-    let dec = decrypt(&enc, key)?;
+    let enc = encrypt(plain.as_ref(), &key, nonce)?;
+    let dec = decrypt(&enc, &key)?;
     assert_eq!(dec, plain);
     Ok(())
 }
@@ -22,28 +22,28 @@ fn decrypt_wrong_key_fails() {
     let key = Aes256Gcm::generate_key(OsRng);
     let wrong_key = Aes256Gcm::generate_key(OsRng);
     let nonce = Aes256Gcm::generate_nonce(OsRng);
-    let enc = encrypt(plain.as_ref(), key, nonce).unwrap();
-    assert!(decrypt(&enc, wrong_key).is_err());
+    let enc = encrypt(plain.as_ref(), &key, nonce).unwrap();
+    assert!(decrypt(&enc, &wrong_key).is_err());
 }
 
 #[test]
 fn decrypt_too_short_fails() {
     let key = Aes256Gcm::generate_key(OsRng);
-    assert!(matches!(decrypt(&[0u8; 11], key), Err(EncDataTooshort)));
+    assert!(matches!(decrypt(&[0u8; 11], &key), Err(EncDataTooshort)));
 }
 
 #[test]
 fn decrypt_empty_fails() {
     let key = Aes256Gcm::generate_key(OsRng);
-    assert!(matches!(decrypt(&[], key), Err(EncDataTooshort)));
+    assert!(matches!(decrypt(&[], &key), Err(EncDataTooshort)));
 }
 
 #[test]
 fn encrypt_decrypt_empty_plaintext() -> Result<(), Error> {
     let key = Aes256Gcm::generate_key(OsRng);
     let nonce = Aes256Gcm::generate_nonce(OsRng);
-    let enc = encrypt(&[], key, nonce)?;
-    let dec = decrypt(&enc, key)?;
+    let enc = encrypt(&[], &key, nonce)?;
+    let dec = decrypt(&enc, &key)?;
     assert_eq!(dec, b"");
     Ok(())
 }
@@ -78,10 +78,10 @@ fn encrypt_decrypt_with_derived_key() -> Result<(), Error> {
     let plain = b"Hello, world!";
     let (key_bytes, salt) = derive_key("my password")?;
     let nonce = Aes256Gcm::generate_nonce(OsRng);
-    let enc = encrypt(plain.as_ref(), key_bytes.into(), nonce)?;
+    let enc = encrypt(plain.as_ref(), &key_bytes.into(), nonce)?;
 
     let key_bytes2 = derive_key_with_salt("my password", &salt)?;
-    let dec = decrypt(&enc, key_bytes2.into())?;
+    let dec = decrypt(&enc, &key_bytes2.into())?;
     assert_eq!(dec, plain);
     Ok(())
 }

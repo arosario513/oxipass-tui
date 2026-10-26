@@ -1,7 +1,8 @@
 use clap::{Parser, Subcommand};
-use oxipass_tui::core::{KeyFile, Vault, VaultError};
+use oxipass_tui::core::{KeyFile, MasterKey, Vault, VaultError};
 use oxipass_tui::tui;
 use std::path::{Path, PathBuf};
+use zeroize::Zeroizing;
 
 const OK: &str = "[\x1b[32m+\x1b[0m]";
 const WARN: &str = "[\x1b[33m*\x1b[0m]";
@@ -39,39 +40,34 @@ enum Command {
     },
 }
 
-fn load_keyfile(path: &Path) -> Result<Vec<u8>, VaultError> {
+fn load_keyfile(path: &Path) -> Result<Zeroizing<[u8; 32]>, VaultError> {
     let path = path.with_extension("opkey");
-    let kf = KeyFile::load(&path)?;
-    Ok(kf.key_bytes()?.to_vec())
+    KeyFile::load(&path)?.key_bytes()
 }
 
-fn open_vault(
-    path: &Path,
-    keyfile: Option<&Path>,
-) -> Result<(Vault, String, Option<Vec<u8>>), VaultError> {
-    let password = rpassword::prompt_password("Master password: ")?;
+// Password and keyfile bytes are wiped when these return; only the derived
+// MasterKey is carried into the TUI.
+fn open_vault(path: &Path, keyfile: Option<&Path>) -> Result<(Vault, MasterKey), VaultError> {
+    let password = Zeroizing::new(rpassword::prompt_password("Master password: ")?);
     let kf_bytes = keyfile.map(load_keyfile).transpose()?;
-    let vault = Vault::load(path, &password, kf_bytes.as_deref())?;
-    Ok((vault, password, kf_bytes))
+    Vault::load(path, &password, kf_bytes.as_ref().map(|k| k.as_slice()))
 }
 
-fn create_vault(
-    path: &Path,
-    keyfile: Option<&Path>,
-) -> Result<(Vault, String, Option<Vec<u8>>), VaultError> {
+fn create_vault(path: &Path, keyfile: Option<&Path>) -> Result<(Vault, MasterKey), VaultError> {
     if path.exists() {
         return Err(VaultError::VaultExists(path.to_path_buf()));
     }
-    let password = rpassword::prompt_password("New master password: ")?;
-    let confirm = rpassword::prompt_password("Confirm master password: ")?;
+    let password = Zeroizing::new(rpassword::prompt_password("New master password: ")?);
+    let confirm = Zeroizing::new(rpassword::prompt_password("Confirm master password: ")?);
     if password != confirm {
         return Err(VaultError::PasswordMismatch);
     }
     let kf_bytes = keyfile.map(load_keyfile).transpose()?;
+    let key = MasterKey::new(&password, kf_bytes.as_ref().map(|k| k.as_slice()))?;
     let vault = Vault::new();
-    vault.save(path, &password, kf_bytes.as_deref())?;
+    vault.save(path, &key)?;
     println!("{} Vault created at {}", OK, path.display());
-    Ok((vault, password, kf_bytes))
+    Ok((vault, key))
 }
 
 fn main() -> Result<(), VaultError> {
@@ -95,14 +91,14 @@ fn main() -> Result<(), VaultError> {
         }
         Command::New { path, keyfile } => {
             let path = path.with_extension("opdb");
-            let (vault, password, kf_bytes) = create_vault(&path, keyfile.as_deref())?;
-            tui::run(vault, path, password, kf_bytes)?;
+            let (vault, key) = create_vault(&path, keyfile.as_deref())?;
+            tui::run(vault, path, key)?;
             Ok(())
         }
         Command::Open { path, keyfile } => {
             let path = path.with_extension("opdb");
             match open_vault(&path, keyfile.as_deref()) {
-                Ok((vault, password, kf_bytes)) => tui::run(vault, path, password, kf_bytes)?,
+                Ok((vault, key)) => tui::run(vault, path, key)?,
                 Err(VaultError::Crypto(_)) if keyfile.is_none() => {
                     eprintln!(
                         "{} Failed to open vault. Wrong password, or this vault requires a key file (-k).",

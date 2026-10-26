@@ -5,10 +5,10 @@ use aes_gcm::{Aes256Gcm, Key, KeyInit};
 
 pub fn encrypt(
     plaintext: &[u8],
-    key: Key<Aes256Gcm>,
+    key: &Key<Aes256Gcm>,
     nonce: Nonce<Aes256Gcm>,
 ) -> Result<Vec<u8>, Error> {
-    let cipher = Aes256Gcm::new(&key);
+    let cipher = Aes256Gcm::new(key);
 
     let enc: Vec<u8> = cipher
         .encrypt(&nonce, plaintext)

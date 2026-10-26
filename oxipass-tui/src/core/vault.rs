@@ -8,13 +8,46 @@ use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use std::path::Path;
 use uuid::Uuid;
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-fn key_material(password: &str, keyfile: Option<&[u8]>) -> Vec<u8> {
-    let mut material = password.as_bytes().to_vec();
-    if let Some(kf) = keyfile {
-        material.extend_from_slice(kf);
-    }
+fn key_material(password: &str, keyfile: Option<&[u8]>) -> Zeroizing<Vec<u8>> {
+    let kf = keyfile.unwrap_or_default();
+    let mut material = Zeroizing::new(Vec::with_capacity(password.len() + kf.len()));
+    material.extend_from_slice(password.as_bytes());
+    material.extend_from_slice(kf);
     material
+}
+
+/// Argon2-derived vault key plus the salt it was derived under. Derived once
+/// at login so the master password and keyfile can be wiped right after;
+/// every save reuses it with a fresh nonce.
+#[derive(Zeroize, ZeroizeOnDrop)]
+pub struct MasterKey {
+    key: [u8; 32],
+    salt: [u8; 16],
+}
+
+impl MasterKey {
+    /// Derives a key under a new random salt (for new vaults).
+    pub fn new(password: &str, keyfile: Option<&[u8]>) -> Result<Self, VaultError> {
+        let material = key_material(password, keyfile);
+        let (key, salt) = derive_key_from_bytes(&material)?;
+        Ok(Self { key, salt })
+    }
+
+    fn with_salt(
+        password: &str,
+        keyfile: Option<&[u8]>,
+        salt: [u8; 16],
+    ) -> Result<Self, VaultError> {
+        let material = key_material(password, keyfile);
+        let key = derive_key_from_bytes_with_salt(&material, &salt)?;
+        Ok(Self { key, salt })
+    }
+
+    fn cipher_key(&self) -> &Key<Aes256Gcm> {
+        Key::<Aes256Gcm>::from_slice(&self.key)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -69,25 +102,17 @@ impl Vault {
         self.entries.len() < before
     }
 
-    pub fn save(
-        &self,
-        path: &Path,
-        password: &str,
-        keyfile: Option<&[u8]>,
-    ) -> Result<(), VaultError> {
+    pub fn save(&self, path: &Path, key: &MasterKey) -> Result<(), VaultError> {
         let path = path.with_extension("opdb");
-        let json = serde_json::to_vec(self)?;
+        let json = Zeroizing::new(serde_json::to_vec(self)?);
         let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(&json)?;
-        let plaintext = encoder.finish()?;
-        let material = key_material(password, keyfile);
-        let (key_bytes, salt) = derive_key_from_bytes(&material)?;
-        let key = Key::<Aes256Gcm>::from(key_bytes);
+        let plaintext = Zeroizing::new(encoder.finish()?);
         let nonce = generate_nonce();
-        let blob = encrypt(&plaintext, key, nonce)?;
+        let blob = encrypt(&plaintext, key.cipher_key(), nonce)?;
 
-        let mut file_data = Vec::with_capacity(salt.len() + blob.len());
-        file_data.extend_from_slice(&salt);
+        let mut file_data = Vec::with_capacity(key.salt.len() + blob.len());
+        file_data.extend_from_slice(&key.salt);
         file_data.extend_from_slice(&blob);
 
         // Backup
@@ -100,7 +125,11 @@ impl Vault {
         Ok(())
     }
 
-    pub fn load(path: &Path, password: &str, keyfile: Option<&[u8]>) -> Result<Self, VaultError> {
+    pub fn load(
+        path: &Path,
+        password: &str,
+        keyfile: Option<&[u8]>,
+    ) -> Result<(Self, MasterKey), VaultError> {
         let data = std::fs::read(path)?;
 
         if data.len() < 44 {
@@ -109,14 +138,12 @@ impl Vault {
 
         let (salt_bytes, blob) = data.split_at(16);
         let salt: [u8; 16] = salt_bytes.try_into().map_err(|_| VaultError::InvalidFile)?;
-        let material = key_material(password, keyfile);
-        let key_bytes = derive_key_from_bytes_with_salt(&material, &salt)?;
-        let key = Key::<Aes256Gcm>::from(key_bytes);
-        let compressed = decrypt(blob, key)?;
+        let key = MasterKey::with_salt(password, keyfile, salt)?;
+        let compressed = Zeroizing::new(decrypt(blob, key.cipher_key())?);
         let mut decoder = DeflateDecoder::new(&compressed[..]);
-        let mut plaintext = Vec::new();
+        let mut plaintext = Zeroizing::new(Vec::new());
         decoder.read_to_end(&mut plaintext)?;
 
-        Ok(serde_json::from_slice(&plaintext)?)
+        Ok((serde_json::from_slice(&plaintext)?, key))
     }
 }

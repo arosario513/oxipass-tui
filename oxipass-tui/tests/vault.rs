@@ -1,4 +1,4 @@
-use oxipass_tui::core::{Entry, Vault};
+use oxipass_tui::core::{Entry, MasterKey, Vault};
 use uuid::Uuid;
 
 fn login(name: &str, password: &str) -> Entry {
@@ -23,9 +23,11 @@ fn save_load_roundtrip() {
     let mut vault = Vault::new();
     vault.push_entry(login("GitHub", "s3cr3t"));
     vault.push_entry(login("Email", "hunter2"));
-    vault.save(&path, password, None).unwrap();
+    vault
+        .save(&path, &MasterKey::new(password, None).unwrap())
+        .unwrap();
 
-    let loaded = Vault::load(&path.with_extension("opdb"), password, None).unwrap();
+    let (loaded, _) = Vault::load(&path.with_extension("opdb"), password, None).unwrap();
     assert_eq!(loaded.entries().len(), 2);
     assert!(matches!(&loaded.entries()[0], Entry::Login { name, .. } if name == "GitHub"));
 }
@@ -42,8 +44,28 @@ fn wrong_password_fails() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("vault");
 
-    Vault::new().save(&path, "correct", None).unwrap();
+    let key = MasterKey::new("correct", None).unwrap();
+    Vault::new().save(&path, &key).unwrap();
     assert!(Vault::load(&path.with_extension("opdb"), "wrong", None).is_err());
+}
+
+#[test]
+fn resave_with_loaded_key_reopens() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("vault");
+    let opdb = path.with_extension("opdb");
+    let kf = [7u8; 32];
+
+    let key = MasterKey::new("pw", Some(&kf)).unwrap();
+    Vault::new().save(&path, &key).unwrap();
+
+    let (mut vault, key) = Vault::load(&opdb, "pw", Some(&kf)).unwrap();
+    vault.push_entry(login("GitHub", "s3cr3t"));
+    vault.save(&path, &key).unwrap();
+
+    let (reloaded, _) = Vault::load(&opdb, "pw", Some(&kf)).unwrap();
+    assert_eq!(reloaded.entries().len(), 1);
+    assert!(Vault::load(&opdb, "pw", None).is_err());
 }
 
 #[test]

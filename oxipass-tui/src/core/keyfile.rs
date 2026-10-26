@@ -3,10 +3,11 @@ use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::Path;
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use crate::core::VaultError;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct KeyFile {
     version: String,
     hash: String,
@@ -15,12 +16,12 @@ pub struct KeyFile {
 
 impl KeyFile {
     pub fn generate() -> Result<Self, VaultError> {
-        let mut raw = [0u8; 32];
-        rand::rng().fill(&mut raw);
+        let mut raw = Zeroizing::new([0u8; 32]);
+        rand::rng().fill(&mut *raw);
         Ok(Self {
             version: "1.0.0".to_string(),
-            hash: compute_hash(&raw),
-            data: STANDARD.encode(raw),
+            hash: compute_hash(&*raw),
+            data: STANDARD.encode(*raw),
         })
     }
 
@@ -31,20 +32,27 @@ impl KeyFile {
     }
 
     pub fn load(path: &Path) -> Result<Self, VaultError> {
-        let content = std::fs::read_to_string(path)?;
+        let content = Zeroizing::new(std::fs::read_to_string(path)?);
         let kf: KeyFile = serde_json::from_str(&content)?;
         let raw = kf.key_bytes()?;
-        if kf.hash != compute_hash(&raw) {
+        if kf.hash != compute_hash(&*raw) {
             return Err(VaultError::InvalidKeyFile);
         }
         Ok(kf)
     }
 
-    pub fn key_bytes(&self) -> Result<[u8; 32], VaultError> {
-        let bytes = STANDARD
-            .decode(&self.data)
-            .map_err(|_| VaultError::InvalidKeyFile)?;
-        bytes.try_into().map_err(|_| VaultError::InvalidKeyFile)
+    pub fn key_bytes(&self) -> Result<Zeroizing<[u8; 32]>, VaultError> {
+        let bytes = Zeroizing::new(
+            STANDARD
+                .decode(&self.data)
+                .map_err(|_| VaultError::InvalidKeyFile)?,
+        );
+        if bytes.len() != 32 {
+            return Err(VaultError::InvalidKeyFile);
+        }
+        let mut raw = Zeroizing::new([0u8; 32]);
+        raw.copy_from_slice(&bytes);
+        Ok(raw)
     }
 }
 
