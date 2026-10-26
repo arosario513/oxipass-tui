@@ -28,6 +28,8 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             binary: oxipass-tui.exe
+            # Static CRT so the portable zip runs without the VC++ redistributable
+            rustflags: -C target-feature=+crt-static
 
     steps:
       - uses: actions/checkout@v4
@@ -42,6 +44,8 @@ jobs:
 
       - name: Build
         shell: bash
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
         run: |
           if [ "${{ matrix.use_cross }}" = "true" ]; then
             cross build --release --target ${{ matrix.target }} -p oxipass-tui
@@ -56,6 +60,14 @@ jobs:
           ext="${{ matrix.binary == 'oxipass-tui.exe' && '.exe' || '' }}"
           cp target/${{ matrix.target }}/release/${{ matrix.binary }} \
              dist/oxipass-tui-${{ matrix.target }}${ext}
+
+      - name: Package portable zip
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path bundle/oxipass-tui | Out-Null
+          Copy-Item target/${{ matrix.target }}/release/oxipass-tui.exe, README.md, LICENSE bundle/oxipass-tui/
+          Compress-Archive -Path bundle/oxipass-tui -DestinationPath dist/oxipass-tui-${{ matrix.target }}-portable.zip
 
       - uses: actions/upload-artifact@v4
         with:

@@ -26,6 +26,31 @@ A terminal-based password manager inspired by KeePassXC, written in Rust. All da
 - **Live search** across all entry fields
 - **Preview pane** with inline reveal toggle for secrets
 
+## Install
+
+Prebuilt binaries are on the [releases page](https://github.com/arosario513/oxipass-tui/releases/latest).
+
+### Windows
+
+Download `oxipass-tui-x86_64-pc-windows-msvc-portable.zip`, extract it anywhere and run `oxipass-tui.exe` from a terminal. No installer or runtime needed.
+
+### Linux / macOS
+
+Download the binary for your platform (`oxipass-tui-<target>`), then:
+
+```bash
+chmod +x oxipass-tui-<target>
+mv oxipass-tui-<target> ~/.local/bin/oxipass-tui
+```
+
+On macOS, the binary is unsigned, so clear the quarantine flag first: `xattr -d com.apple.quarantine oxipass-tui-<target>`.
+
+### Arch Linux (AUR)
+
+```bash
+yay -S oxipass-tui-bin
+```
+
 ## Build
 
 Requires a Rust toolchain.
